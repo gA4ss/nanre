@@ -30,23 +30,28 @@ namespace nanan {
     };
     
   public:
-    nan_regular();
-    nan_regular(const std::string &re_str);
+    nan_regular(size_t mbl=1024);
+    nan_regular(const std::string &re_str, size_t mbl=1024);
     virtual ~nan_regular();
     
   public:
     virtual void load(const std::string &re_str);
     virtual std::vector<size_t> match(const std::string &str);
+#if (NDEBUG==0)
     virtual void print_deltas();
-    
-    
+#endif
+  
   protected:
+    virtual int next_state();
     virtual std::shared_ptr<nan_regular::nan_regular_delta> make_delta(int e);
     virtual std::shared_ptr<nan_regular::nan_regular_delta> make_delta(std::vector<int> &e);
-    virtual void parse();
-    virtual std::vector<std::shared_ptr<nan_regular::nan_regular_delta> > make_deltas();
+    virtual std::shared_ptr<nan_regular::nan_regular_delta> make_epsilon_delta(int l, int r);
+    
+    virtual void compile_regular_expression();
+    virtual std::vector<std::shared_ptr<nan_regular::nan_regular_delta> > parse(int end=0);
     virtual std::shared_ptr<nan_regular::nan_regular_delta> parse_dot();
     virtual std::shared_ptr<nan_regular::nan_regular_delta> parse_set();
+    virtual std::vector<std::shared_ptr<nan_regular::nan_regular_delta> > parse_sub();
     virtual std::shared_ptr<nan_regular::nan_regular_delta> parse_transferred();
     
   protected:
@@ -60,9 +65,13 @@ namespace nanan {
   protected:
     std::vector<std::vector<int> > _state_relation_table;       /*!< 生成的状态关系树会转换成此关系矩阵 */
     std::vector<std::shared_ptr<nan_regular::nan_regular_delta> > _delta_set;
+    std::shared_ptr<nan_regular::nan_regular_delta> _curr_delta;
     std::string _regular_expression;
     size_t _curr_pos;
     int _curr_state;
+    
+  private:
+    size_t _max_buffer_len;
   };
 }
 
