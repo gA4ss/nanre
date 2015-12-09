@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <utility>
 
 namespace nanan {
   
@@ -17,17 +18,40 @@ namespace nanan {
   
   class nan_regular : public nan_regular_object {
   public:
-    class nan_regular_delta : public nan_regular_object {
+    
+    class nan_regular_edge : public nan_regular_object {
     public:
-      nan_regular_delta(int l, int r, int e);
-      nan_regular_delta(int l, int r, std::vector<int> &e, bool unique=false);
-      virtual ~nan_regular_delta();
+      nan_regular_edge(int e);
+      nan_regular_edge(std::vector<int> &e,
+                       bool unique=false);
+      virtual ~nan_regular_edge();
       
     public:
-      int left_state;
-      int right_state;
-      std::vector<int> edge;
+      bool epsilon;
+      std::vector<int> charset;
     };
+    typedef std::shared_ptr<nan_regular::nan_regular_edge> edge_t;
+    
+    class nan_regular_state : public nan_regular_object {
+    public:
+      nan_regular_state(int st);
+      virtual ~nan_regular_state();
+      
+    public:
+      void add_edge(std::shared_ptr<nan_regular::nan_regular_state> st,
+                    int e);
+      void add_edge(std::shared_ptr<nan_regular::nan_regular_state> st,
+                    std::vector<int> &e,
+                    bool unique=false);
+      void add_edge(std::shared_ptr<nan_regular::nan_regular_state> st,
+                    edge_t edge);
+      
+    public:
+      bool accept;
+      int state;
+      std::map<std::shared_ptr<nan_regular::nan_regular_state>, edge_t > edges;
+    };
+    typedef std::shared_ptr<nan_regular::nan_regular_state> state_t;
     
   public:
     nan_regular(size_t mbl=1024);
@@ -37,22 +61,27 @@ namespace nanan {
   public:
     virtual void load(const std::string &re_str);
     virtual std::vector<size_t> match(const std::string &str);
-#if (NDEBUG==0)
-    virtual void print_deltas();
-#endif
-  
+    virtual void print_states(nan_regular::state_t s=nullptr);
+    
   protected:
     virtual int next_state();
-    virtual std::shared_ptr<nan_regular::nan_regular_delta> make_delta(int e);
-    virtual std::shared_ptr<nan_regular::nan_regular_delta> make_delta(std::vector<int> &e);
-    virtual std::shared_ptr<nan_regular::nan_regular_delta> make_epsilon_delta(int l, int r);
+    virtual nan_regular::state_t new_state(int st);
+    virtual nan_regular::edge_t new_edge(int e);
+    virtual nan_regular::edge_t new_edge(std::vector<int> &e,
+                                         bool unique=false);
     
     virtual void compile_regular_expression();
-    virtual std::vector<std::shared_ptr<nan_regular::nan_regular_delta> > parse(int end=0);
-    virtual std::shared_ptr<nan_regular::nan_regular_delta> parse_dot();
-    virtual std::shared_ptr<nan_regular::nan_regular_delta> parse_set();
-    virtual std::vector<std::shared_ptr<nan_regular::nan_regular_delta> > parse_sub();
-    virtual std::shared_ptr<nan_regular::nan_regular_delta> parse_transferred();
+    virtual nan_regular::state_t parse(int end=0);
+    virtual nan_regular::edge_t parse_dot();
+    virtual nan_regular::edge_t parse_set();
+    virtual nan_regular::edge_t parse_transferred();
+    
+  protected:
+    virtual void link_state(nan_regular::edge_t edge);
+    virtual void or_link_state(nan_regular::state_t top, nan_regular::edge_t edge);
+    virtual void asterisk_link_state();
+    virtual nan_regular::edge_t make_edge(int ch);
+    virtual std::vector<nan_regular::state_t> find_accept_state(nan_regular::state_t top);
     
   protected:
     virtual void begin_pos();
@@ -63,12 +92,13 @@ namespace nanan {
     virtual void rollback_char(size_t c);
     
   protected:
-    std::vector<std::vector<int> > _state_relation_table;       /*!< 生成的状态关系树会转换成此关系矩阵 */
-    std::vector<std::shared_ptr<nan_regular::nan_regular_delta> > _delta_set;
-    std::shared_ptr<nan_regular::nan_regular_delta> _curr_delta;
-    std::string _regular_expression;
-    size_t _curr_pos;
-    int _curr_state;
+    std::string _regular_expression;                                    /*!< 正则表达式 */
+    size_t _curr_pos;                                                   /*!< 当前的位置 */
+    int _curr_state;                                                    /*!< 当前的状态 */
+    state_t _state0;                                                    /*!< 状态0 */
+    state_t _curr;                                                      /*!< 当前的状态 */
+    state_t _prev;                                                      /*!< 上一个状态 */
+    std::vector<state_t> _state_stack;                                  /*!< 状态栈 */
     
   private:
     size_t _max_buffer_len;
