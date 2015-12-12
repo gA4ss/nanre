@@ -7,6 +7,7 @@
 #include <vector>
 #include <map>
 #include <utility>
+#include <functional>
 
 namespace nanan {
   
@@ -25,6 +26,9 @@ namespace nanan {
       nan_regular_edge(std::vector<int> &e,
                        bool unique=false);
       virtual ~nan_regular_edge();
+      
+    public:
+      bool matched(int c);
       
     public:
       bool epsilon;
@@ -61,7 +65,9 @@ namespace nanan {
   public:
     virtual void load(const std::string &re_str);
     virtual std::vector<size_t> match(const std::string &str);
-    virtual void print_states(nan_regular::state_t s=nullptr);
+    virtual void print_states(nan_regular::state_t s);
+    virtual void print_nfa();
+    virtual void print_dfa();
     
   protected:
     virtual int next_state();
@@ -71,10 +77,14 @@ namespace nanan {
                                          bool unique=false);
     
     virtual void compile_regular_expression();
-    virtual nan_regular::state_t parse(int end=0);
+    virtual nan_regular::state_t thompson(int end=0);
     virtual nan_regular::edge_t parse_dot();
     virtual nan_regular::edge_t parse_set();
     virtual nan_regular::edge_t parse_transferred();
+    virtual void nfa2dfa(nan_regular::state_t s0);
+    virtual std::vector<nan_regular::state_t>& e_closure(nan_regular::state_t state, bool clr=true);
+    virtual std::vector<nan_regular::state_t>& e_closure(const std::vector<nan_regular::state_t> &states, bool clr=true);
+    virtual std::vector<nan_regular::state_t> delta(std::vector<nan_regular::state_t> states, int c);
     
   protected:
     virtual void link_state(nan_regular::edge_t edge);
@@ -82,6 +92,12 @@ namespace nanan {
     virtual void asterisk_link_state();
     virtual nan_regular::edge_t make_edge(int ch);
     virtual std::vector<nan_regular::state_t> find_accept_state(nan_regular::state_t top);
+    virtual size_t state_sign(const nan_regular::state_t &state);
+    virtual size_t states_sign(std::vector<nan_regular::state_t> states);
+    virtual bool state_set_is_equal(const std::vector<nan_regular::state_t> &v1,
+                                    const std::vector<nan_regular::state_t> &v2);
+    virtual bool state_is_in_set(const nan_regular::state_t &state,
+                                 const std::vector<nan_regular::state_t> &set);
     
   protected:
     virtual void begin_pos();
@@ -95,13 +111,16 @@ namespace nanan {
     std::string _regular_expression;                                    /*!< 正则表达式 */
     size_t _curr_pos;                                                   /*!< 当前的位置 */
     int _curr_state;                                                    /*!< 当前的状态 */
-    state_t _state0;                                                    /*!< 状态0 */
+    state_t _nfa;                                                       /*!< 不确定性有限状态机 */
+    state_t _dfa;                                                       /*!< 确定性有限状态机 */
     state_t _curr;                                                      /*!< 当前的状态 */
     state_t _prev;                                                      /*!< 上一个状态 */
     std::vector<state_t> _state_stack;                                  /*!< 状态栈 */
+    std::vector<int> _charset;                                          /*!< 字符集 */
     
   private:
     size_t _max_buffer_len;
+    std::vector<nan_regular::state_t> _e_closure_pass;                  /*!< 支持e_closure的临时变量 */
   };
 }
 
