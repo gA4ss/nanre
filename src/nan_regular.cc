@@ -93,6 +93,18 @@ namespace nanan {
     virtual ~nan_regular_nfa2dfa(){};
   };
   
+  /********************************************************************************/
+  
+  static bool s_add_to_unique_vector(std::vector<int> &v, int c) {
+    for (auto i : v) {
+      if (i == c) return false;
+    }
+    
+    v.push_back(c);
+    return true;
+  }
+  
+  static bool s_is_print(char c) { return ((c >= 33) && (c < 126)); }
   
   
   /********************************************************************************/
@@ -116,6 +128,7 @@ namespace nanan {
   
   nan_regular::nan_regular_edge::nan_regular_edge(std::vector<int> &e,
                                                   bool unique) {
+    epsilon = false;
     /* unique操作 */
     if (unique == false) {
       charset = e;
@@ -157,7 +170,7 @@ namespace nanan {
     std::shared_ptr<nan_regular::nan_regular_edge> edge =
     std::shared_ptr<nan_regular::nan_regular_edge>(new nan_regular::nan_regular_edge(e));
     if (edge == nullptr) error(NAN_ERROR_RUNTIME_ALLOC_MEMORY);
-    edges[st] = edge;
+    add_edge(st, edge);
   }
   
   void nan_regular::nan_regular_state::add_edge(std::shared_ptr<nan_regular::nan_regular_state> st,
@@ -166,26 +179,21 @@ namespace nanan {
     std::shared_ptr<nan_regular::nan_regular_edge> edge =
     std::shared_ptr<nan_regular::nan_regular_edge>(new nan_regular::nan_regular_edge(e, unique));
     if (edge == nullptr) error(NAN_ERROR_RUNTIME_ALLOC_MEMORY);
-    edges[st] = edge;
+    add_edge(st, edge);
   }
 
   void nan_regular::nan_regular_state::add_edge(std::shared_ptr<nan_regular::nan_regular_state> st,
                                                 edge_t edge) {
-    edges[st] = edge;
+    if (edges.find(st) == edges.end()) {
+      edges[st] = edge;
+    } else {
+      for (auto c : edge->charset) {
+        s_add_to_unique_vector(edges[st]->charset, c);
+      }
+    }
   }
   
   /********************************************************************************/
-  
-  static bool s_add_to_unique_vector(std::vector<int> &v, int c) {
-    for (auto i : v) {
-      if (i == c) return false;
-    }
-    
-    v.push_back(c);
-    return true;
-  }
-  
-  static bool s_is_print(char c) { return ((c >= 33) && (c < 126)); }
   
   nan_regular::nan_regular(size_t mbl) : nanan::nan_regular_object() {
     _max_buffer_len = mbl;
@@ -719,7 +727,7 @@ namespace nanan {
         for (auto x : d_set) if (x.first == end_sign) d_next = x.second;
         if (d_next == nullptr) {
           d_next = new_state(d_s++);
-          if (s_states_has_accept(q)) d_next->accept = true;
+          if (s_states_has_accept(ways)) d_next->accept = true;
           d_set.push_back(std::make_pair(end_sign, d_next));
         }
         d->add_edge(d_next, c);
