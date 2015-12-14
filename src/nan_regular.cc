@@ -193,6 +193,13 @@ namespace nanan {
     }
   }
   
+  bool nan_regular::nan_regular_state::matched(int c) {
+    for (auto e : edges) {
+      if (e.second->matched(c) == true) return true;
+    }
+    return false;
+  }
+  
   /********************************************************************************/
   
   nan_regular::nan_regular(size_t mbl) : nanan::nan_regular_object() {
@@ -343,6 +350,7 @@ namespace nanan {
       thompson(0);
       if (_state_stack.empty() == false) throw nan_regular_parse_unknow();
       nfa2dfa(_nfa);
+      hopcroft();
     } catch (nan_regular_parse_unknow e) {              /* 不知名的错误 */
     } catch (nan_regular_parse_not e) {                 /* 分析not操作符出错 */
     } catch (nan_regular_parse_set e) {                 /* 分析集合操作出错 */
@@ -570,6 +578,32 @@ namespace nanan {
     return false;
   }
   
+  bool nan_regular::state_set_divide_is_equal(std::vector<std::vector<nan_regular::state_t> > v1,
+                                              std::vector<std::vector<nan_regular::state_t> > v2) {
+    if (v1.size() != v2.size()) {
+      return false;
+    }
+    
+    /* 排序 */
+    std::sort(v1.begin(), v1.end(), [](std::vector<nan_regular::state_t> &n,
+                                       std::vector<nan_regular::state_t> &m){
+      return states_sign(n) < states_sign(m);
+    });
+    
+    std::sort(v2.begin(), v2.end(), [](std::vector<nan_regular::state_t> &n,
+                                       std::vector<nan_regular::state_t> &m){
+      return states_sign(n) < states_sign(m);
+    });
+    
+    for (size_t i = 0; i < v1.size(); i++) {
+      if (v1[i] != v2[i]) {
+        return false;
+      }
+    }
+    
+    return true;
+  }
+  
   nan_regular::state_t nan_regular::thompson(int end) {
     state_t top = nullptr, call = nullptr;
     edge_t edge = nullptr;
@@ -697,7 +731,7 @@ namespace nanan {
     wl.push_back(q0);
     
     int d_s = 0;
-    std::vector<std::pair<size_t, nan_regular::state_t> > d_set;
+    _dfa_set.clear();
     nan_regular::state_t d = nullptr;
     
     while (wl.empty() == false) {
@@ -706,12 +740,12 @@ namespace nanan {
       
       /* 在d集合中寻找 */
       d = nullptr;
-      for (auto x : d_set) if (x.first == start_sign) { d = x.second; break;}
+      for (auto x : _dfa_set) if (x.first == start_sign) { d = x.second; break;}
       if (d == nullptr) {
         d = new_state(d_s++);
         if (s_states_has_accept(q)) d->accept = true;
         if (_dfa == nullptr) _dfa = d;
-        d_set.push_back(std::make_pair(start_sign, d));
+        _dfa_set.push_back(std::make_pair(start_sign, d));
       }
       wl.pop_back();
       
@@ -724,11 +758,11 @@ namespace nanan {
         
         /* 在d集合中寻找 */
         nan_regular::state_t d_next = nullptr;
-        for (auto x : d_set) if (x.first == end_sign) d_next = x.second;
+        for (auto x : _dfa_set) if (x.first == end_sign) d_next = x.second;
         if (d_next == nullptr) {
           d_next = new_state(d_s++);
           if (s_states_has_accept(ways)) d_next->accept = true;
-          d_set.push_back(std::make_pair(end_sign, d_next));
+          _dfa_set.push_back(std::make_pair(end_sign, d_next));
         }
         d->add_edge(d_next, c);
         
@@ -743,4 +777,88 @@ namespace nanan {
       }
     }/* end while */
   }
+  
+  bool s_sp_si_S(std::pair<std::vector<nan_regular::state_t>, std::vector<nan_regular::state_t> > &sp) {
+    if (sp.first.empty() || sp.second.empty()) {
+      return true;
+    }
+    return false;
+  }
+  
+  std::pair<std::vector<nan_regular::state_t>, std::vector<nan_regular::state_t> >
+  nan_regular::split(const std::vector<nan_regular::state_t> &S) {
+    std::pair<std::vector<nan_regular::state_t>, std::vector<nan_regular::state_t> > res;
+    
+    if (S.empty() || (S.size() == 1)) {
+      return res;
+    }
+    
+    for (auto c : _charset) {
+      res.first.clear();
+      for (auto s : S) {
+        if (s->matched(c) == true) res.first.push_back(s);
+      }/* end for */
+      
+      /* 当前的c可以进行划分 */
+      if ((res.first.empty() == false) && (res.first.size() < S.size())) {
+        for (auto s1 : S) {
+          bool found = false;
+          for (auto s2 : res.first) {
+            if (s1 == s2) found = true;
+          }
+          
+          if (found == false) {
+            res.second.push_back(s1);
+          }
+        }
+        
+        /* 有一组集合划分则OK */
+        return res;
+        
+      }/* end if */
+    }
+    
+    return res;
+  }
+  
+  /* 最小化DFA算法 */
+  void nan_regular::hopcroft() {
+    std::vector<nan_regular::state_t> normals;
+    std::vector<nan_regular::state_t> accepts;
+    /* T,P保存了一组 集合划分 */
+    std::vector<std::vector<nan_regular::state_t> > T;
+    std::vector<std::vector<nan_regular::state_t> > P;
+
+    if (_dfa == nullptr) return;
+    if (_dfa_set.empty()) return;
+    
+    for (auto s : _dfa_set) {
+      if (s.second->accept) accepts.push_back(s.second);
+      else normals.push_back(s.second);
+    }
+    
+    if (normals.empty() == false) T.push_back(normals);
+    if (accepts.empty() == false) T.push_back(accepts);
+    
+    std::pair<std::vector<nan_regular::state_t>, std::vector<nan_regular::state_t> > sp;
+    /* 直到P == T */
+    while (state_set_divide_is_equal(P, T) == false) {
+      P = T;
+      T.clear();
+      
+      for (auto p : P) {
+        sp = split(p);
+        if (s_sp_si_S(sp)) {
+          T.push_back(p);
+        } else {
+          T.push_back(sp.first);
+          T.push_back(sp.second);
+        }
+      }/* end for */
+    }
+    
+    /* 当前划分了两个集合 */
+    
+  }
+  
 }

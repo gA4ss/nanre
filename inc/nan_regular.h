@@ -49,6 +49,7 @@ namespace nanan {
                     bool unique=false);
       void add_edge(std::shared_ptr<nan_regular::nan_regular_state> st,
                     edge_t edge);
+      bool matched(int c);
       
     public:
       bool accept;
@@ -85,19 +86,26 @@ namespace nanan {
     virtual std::vector<nan_regular::state_t>& e_closure(nan_regular::state_t state, bool clr=true);
     virtual std::vector<nan_regular::state_t>& e_closure(const std::vector<nan_regular::state_t> &states, bool clr=true);
     virtual std::vector<nan_regular::state_t> delta(std::vector<nan_regular::state_t> states, int c);
+    virtual std::pair<std::vector<nan_regular::state_t>, std::vector<nan_regular::state_t> >
+    split(const std::vector<nan_regular::state_t> &S);
+    virtual void hopcroft();
     
   protected:
     virtual void link_state(nan_regular::edge_t edge);
     virtual void or_link_state(nan_regular::state_t top, nan_regular::edge_t edge);
     virtual void asterisk_link_state();
     virtual nan_regular::edge_t make_edge(int ch);
-    virtual std::vector<nan_regular::state_t> find_accept_state(nan_regular::state_t top);
-    virtual size_t state_sign(const nan_regular::state_t &state);
-    virtual size_t states_sign(std::vector<nan_regular::state_t> states);
-    virtual bool state_set_is_equal(const std::vector<nan_regular::state_t> &v1,
-                                    const std::vector<nan_regular::state_t> &v2);
-    virtual bool state_is_in_set(const nan_regular::state_t &state,
-                                 const std::vector<nan_regular::state_t> &set);
+
+  public:
+    static std::vector<nan_regular::state_t> find_accept_state(nan_regular::state_t top);
+    static size_t state_sign(const nan_regular::state_t &state);
+    static size_t states_sign(std::vector<nan_regular::state_t> states);
+    static bool state_set_is_equal(const std::vector<nan_regular::state_t> &v1,
+                                   const std::vector<nan_regular::state_t> &v2);
+    static bool state_is_in_set(const nan_regular::state_t &state,
+                                const std::vector<nan_regular::state_t> &set);
+    static bool state_set_divide_is_equal(std::vector<std::vector<nan_regular::state_t> > v1,
+                                          std::vector<std::vector<nan_regular::state_t> > v2);
     
   protected:
     virtual void begin_pos();
@@ -117,6 +125,7 @@ namespace nanan {
     state_t _prev;                                                      /*!< 上一个状态 */
     std::vector<state_t> _state_stack;                                  /*!< 状态栈 */
     std::vector<int> _charset;                                          /*!< 字符集 */
+    std::vector<std::pair<size_t, nan_regular::state_t> > _dfa_set;     /*!< dfa的状态集合 */
     
   private:
     size_t _max_buffer_len;
