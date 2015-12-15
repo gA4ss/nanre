@@ -66,7 +66,7 @@ namespace nanan {
     
   public:
     virtual void load(const std::string &re_str);
-    virtual std::vector<size_t> match(const std::string &str);
+    virtual bool strict_match(const std::string &str);
 #if NDEBUG==0
     virtual void print_states(nan_regular::state_t s);
     virtual void print_nfa();

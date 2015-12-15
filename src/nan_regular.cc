@@ -233,10 +233,29 @@ namespace nanan {
     compile_regular_expression();
   }
   
-  std::vector<size_t> nan_regular::match(const std::string &str) {
-    std::vector<size_t> res;
+  bool nan_regular::strict_match(const std::string &str) {
+    if (_dfa == nullptr) {
+      return false;
+    }
     
-    return res;
+    nan_regular::state_t curr = _dfa;
+    for (auto c : str) {
+      bool nf = false;
+      for (auto e : curr->edges) {
+        if (e.second->matched(c) == true) {
+          curr = e.first;
+          nf = true;
+          break;          /* 匹配到一条表则跳出 */
+        }
+      }
+      
+      if (nf == false) {
+        return false;
+      }
+      
+    }
+    
+    return curr->accept;
   }
   
 #if NDEBUG==0
