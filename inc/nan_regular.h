@@ -65,8 +65,11 @@ namespace nanan {
     virtual ~nan_regular();
     
   public:
-    virtual void load(const std::string &re_str);
-    virtual bool strict_match(const std::string &str);
+    virtual void compile(const std::string &re_str);
+    virtual bool match_strict(const std::string &str);
+    virtual std::vector<std::pair<size_t, size_t> > match_short(const std::string &str);
+    virtual std::vector<std::pair<size_t, size_t> > match_long(const std::string &str);
+    
 #if NDEBUG==0
     virtual void print_states(nan_regular::state_t s);
     virtual void print_nfa();

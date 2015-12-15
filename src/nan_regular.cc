@@ -217,13 +217,13 @@ namespace nanan {
   
   nan_regular::nan_regular(const std::string &re_str, size_t mbl) : nanan::nan_regular_object() {
     _max_buffer_len = mbl;
-    load(re_str);
+    compile(re_str);
   }
   
   nan_regular::~nan_regular() {
   }
   
-  void nan_regular::load(const std::string &re_str) {
+  void nan_regular::compile(const std::string &re_str) {
     clear();
     if (re_str.empty()) _regular_expression.clear();
     else {
@@ -233,7 +233,7 @@ namespace nanan {
     compile_regular_expression();
   }
   
-  bool nan_regular::strict_match(const std::string &str) {
+  bool nan_regular::match_strict(const std::string &str) {
     if (_dfa == nullptr) {
       return false;
     }
@@ -256,6 +256,88 @@ namespace nanan {
     }
     
     return curr->accept;
+  }
+  
+  std::vector<std::pair<size_t, size_t> > nan_regular::match_short(const std::string &str) {
+    std::vector<std::pair<size_t, size_t> > res;
+    
+    if (_dfa == nullptr) {
+      return res;
+    }
+    
+    size_t len = 0, ptr = 0;
+    nan_regular::state_t curr = _dfa;
+    std::pair<size_t, size_t> save;
+    for (auto c : str) {
+      ptr++;
+      bool nf = false;
+      for (auto e : curr->edges) {
+        if (e.second->matched(c) == true) {
+          curr = e.first;
+          nf = true;
+          len++;
+          break;          /* 匹配到一条表则跳出 */
+        }
+      }
+      
+      if (curr->accept && nf) {
+        save.first = ptr - len;
+        save.second = len;
+        res.push_back(save);
+        len = 0;
+        curr = _dfa;
+      }
+      
+      /* 没有匹配 */
+      if (nf == false) {
+        curr = _dfa;
+        len = 0;
+      }
+    }
+    return res;
+  }
+  
+  std::vector<std::pair<size_t, size_t> > nan_regular::match_long(const std::string &str) {
+    std::vector<std::pair<size_t, size_t> > res;
+    
+    if (_dfa == nullptr) {
+      return res;
+    }
+    
+    size_t len = 0, ptr = 0;
+    nan_regular::state_t curr = _dfa;
+    std::pair<size_t, size_t> save;
+    bool saved = false;
+    for (auto c : str) {
+      ptr++;
+      bool nf = false;
+      for (auto e : curr->edges) {
+        if (e.second->matched(c) == true) {
+          curr = e.first;
+          nf = true;
+          len++;
+          break;          /* 匹配到一条表则跳出 */
+        }
+      }
+      
+      if (curr->accept && nf) {
+        save.first = ptr - len;
+        save.second = len;
+        saved = true;
+      }
+      
+      /* 没有匹配 */
+      if (nf == false) {
+        curr = _dfa;
+        len = 0;
+        if (saved) res.push_back(save);
+        saved = false;
+      }
+    }
+    
+    if (saved) res.push_back(save);
+    
+    return res;
   }
   
 #if NDEBUG==0
