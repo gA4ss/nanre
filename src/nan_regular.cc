@@ -126,7 +126,7 @@ namespace nanan {
     charset.push_back(e);
   }
   
-  nan_regular::nan_regular_edge::nan_regular_edge(std::vector<int> &e,
+  nan_regular::nan_regular_edge::nan_regular_edge(const std::vector<int> &e,
                                                   bool unique) {
     epsilon = false;
     /* unique操作 */
@@ -165,7 +165,7 @@ namespace nanan {
     edges.clear();
   }
   
-  void nan_regular::nan_regular_state::add_edge(std::shared_ptr<nan_regular::nan_regular_state> st,
+  void nan_regular::nan_regular_state::add_edge(const std::shared_ptr<nan_regular::nan_regular_state> &st,
                                                 int e) {
     std::shared_ptr<nan_regular::nan_regular_edge> edge =
     std::shared_ptr<nan_regular::nan_regular_edge>(new nan_regular::nan_regular_edge(e));
@@ -173,8 +173,8 @@ namespace nanan {
     add_edge(st, edge);
   }
   
-  void nan_regular::nan_regular_state::add_edge(std::shared_ptr<nan_regular::nan_regular_state> st,
-                                                std::vector<int> &e,
+  void nan_regular::nan_regular_state::add_edge(const std::shared_ptr<nan_regular::nan_regular_state> &st,
+                                                const std::vector<int> &e,
                                                 bool unique) {
     std::shared_ptr<nan_regular::nan_regular_edge> edge =
     std::shared_ptr<nan_regular::nan_regular_edge>(new nan_regular::nan_regular_edge(e, unique));
@@ -182,8 +182,8 @@ namespace nanan {
     add_edge(st, edge);
   }
 
-  void nan_regular::nan_regular_state::add_edge(std::shared_ptr<nan_regular::nan_regular_state> st,
-                                                edge_t edge) {
+  void nan_regular::nan_regular_state::add_edge(const std::shared_ptr<nan_regular::nan_regular_state> &st,
+                                                const edge_t &edge) {
     if (edges.find(st) == edges.end()) {
       edges[st] = edge;
     } else {
@@ -196,6 +196,15 @@ namespace nanan {
   bool nan_regular::nan_regular_state::matched(int c) {
     for (auto e : edges) {
       if (e.second->matched(c) == true) return true;
+    }
+    return false;
+  }
+  
+  bool nan_regular::nan_regular_state::matched(const std::shared_ptr<nan_regular::nan_regular_state> &st) {
+    if (edges.empty()) return false;
+    
+    for (auto e : edges) {
+      if (e.first->state == st->state) return true;
     }
     return false;
   }
@@ -215,19 +224,12 @@ namespace nanan {
   }
   
   void nan_regular::load(const std::string &re_str) {
+    clear();
     if (re_str.empty()) _regular_expression.clear();
     else {
       if (re_str.size() > _max_buffer_len) throw nan_regular_over_max_buffer_len(0);
       _regular_expression = re_str;
-    }
-    _curr_pos = 0;
-    _curr_state = -1;
-    _curr = nullptr;
-    _prev = nullptr;
-    _nfa = nullptr;
-    _dfa = nullptr;
-    _charset.clear();
-    
+    }    
     compile_regular_expression();
   }
   
@@ -236,6 +238,8 @@ namespace nanan {
     
     return res;
   }
+  
+#if NDEBUG==0
   
   void nan_regular::print_states(nan_regular::state_t s) {
     if (s == nullptr) {
@@ -270,6 +274,22 @@ namespace nanan {
   
   void nan_regular::print_dfa() {
     print_states(_dfa);
+  }
+#endif
+  
+  void nan_regular::clear() {
+    _regular_expression.clear();
+    _curr_pos = 0;
+    _curr_state = -1;
+    _nfa = nullptr;
+    _dfa = nullptr;
+    _curr = nullptr;
+    _prev = nullptr;
+    _state_stack.clear();
+    _charset.clear();
+    _dfa_set.clear();
+    _e_closure_pass.clear();
+    _dfa_map.clear();
   }
   
   int nan_regular::next_state() {
@@ -346,7 +366,6 @@ namespace nanan {
   void nan_regular::compile_regular_expression() {
     
     try {
-      
       thompson(0);
       if (_state_stack.empty() == false) throw nan_regular_parse_unknow();
       nfa2dfa(_nfa);
@@ -444,7 +463,7 @@ namespace nanan {
       chr_res = tmp;
     }
     
-    return new_edge(chr_res);
+    return new_edge(chr_res, true);
   }
   
   nan_regular::edge_t nan_regular::parse_transferred() {
@@ -821,6 +840,53 @@ namespace nanan {
     return res;
   }
   
+  static bool s_is_start_state(const nan_regular::state_t &state,
+                               const std::vector<nan_regular::state_t> &states) {
+    for (auto s : states) {
+      if (state == s) return true;
+    }
+    
+    return false;
+  }
+  
+  static nan_regular::state_t s_new_state(int st) {
+    nan_regular::state_t ptr = std::shared_ptr<nan_regular::nan_regular_state>(new nan_regular::nan_regular_state(st));
+    if (ptr == nullptr) error(NAN_ERROR_RUNTIME_ALLOC_MEMORY);
+    return ptr;
+  }
+  
+  static nan_regular::state_t s_new_dfa_state(std::map<size_t, nan_regular::state_t> &sets,
+                                              const std::vector<nan_regular::state_t> &now,
+                                              const std::vector<std::vector<nan_regular::state_t> > &T) {
+    static int ns = 0;
+    nan_regular::state_t curr = nullptr;
+    
+    size_t curr_sign = nan_regular::states_sign(now);
+    if (sets.find(curr_sign) == sets.end()) {
+      curr = s_new_state(ns++);
+      sets[curr_sign] = curr;
+    } else curr = sets[curr_sign];
+    
+    /* 遍历当前的状态集合的所有结点 */
+    for (auto n : now) {
+      for (auto e : n->edges) {
+        /* 取出边对应的的目的状态并在集合中寻找 */
+        for (auto t : T) {
+          /* 找到表所对应的集合 */
+          if (nan_regular::state_is_in_set(e.first, t)) {
+            nan_regular::state_t linkto = nullptr;
+            curr_sign = nan_regular::states_sign(t);
+            if (sets.find(curr_sign) != sets.end()) linkto = sets[curr_sign];
+            else { linkto = s_new_state(ns++); sets[curr_sign] = linkto; }
+            curr->add_edge(linkto, e.second);
+          }
+        }
+      }
+    }
+    
+    return curr;
+  }
+  
   /* 最小化DFA算法 */
   void nan_regular::hopcroft() {
     std::vector<nan_regular::state_t> normals;
@@ -857,8 +923,39 @@ namespace nanan {
       }/* end for */
     }
     
-    /* 当前划分了两个集合 */
+    /* 建立新的dfa */
+    std::map<size_t, nan_regular::state_t> dfa_set;
+    nan_regular::state_t new_dfa = nullptr;
+    for (auto t : T) {
+      nan_regular::state_t s = s_new_dfa_state(dfa_set, t, T);
+      if (s_is_start_state(_dfa, t) && (new_dfa == nullptr)) new_dfa = s;             /* 判断是否是起始状态 */
+      if (s_states_has_accept(t)) s->accept = true;                                   /* 判断是否有是否接受状态 */
+    }
+    _dfa = new_dfa;
+    
+    /* 创建链接图 */
+    _dfa_map.clear();
+    std::vector<bool> tmp;
+    tmp.resize(dfa_set.size());
+    for (auto i : dfa_set) {
+      _dfa_map.push_back(tmp);
+    }
+    
+    for (auto s : dfa_set) {
+      for (auto e : s.second->edges) {
+        _dfa_map[s.second->state][e.first->state] = true;
+      }
+    }
+    
+#if NDEBUG==0
+    for (size_t i = 0; i < _dfa_map.size(); i++) {
+      for (size_t j = 0; j < _dfa_map[i].size(); j++) {
+        if (_dfa_map[i][j]) printf("1 ");
+        else printf("0 ");
+      }
+      printf("\n");
+    }
+#endif
     
   }
-  
 }

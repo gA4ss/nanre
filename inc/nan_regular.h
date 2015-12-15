@@ -23,7 +23,7 @@ namespace nanan {
     class nan_regular_edge : public nan_regular_object {
     public:
       nan_regular_edge(int e);
-      nan_regular_edge(std::vector<int> &e,
+      nan_regular_edge(const std::vector<int> &e,
                        bool unique=false);
       virtual ~nan_regular_edge();
       
@@ -42,14 +42,15 @@ namespace nanan {
       virtual ~nan_regular_state();
       
     public:
-      void add_edge(std::shared_ptr<nan_regular::nan_regular_state> st,
+      void add_edge(const std::shared_ptr<nan_regular::nan_regular_state> &st,
                     int e);
-      void add_edge(std::shared_ptr<nan_regular::nan_regular_state> st,
-                    std::vector<int> &e,
+      void add_edge(const std::shared_ptr<nan_regular::nan_regular_state> &st,
+                    const std::vector<int> &e,
                     bool unique=false);
-      void add_edge(std::shared_ptr<nan_regular::nan_regular_state> st,
-                    edge_t edge);
+      void add_edge(const std::shared_ptr<nan_regular::nan_regular_state> &st,
+                    const edge_t &edge);
       bool matched(int c);
+      bool matched(const std::shared_ptr<nan_regular::nan_regular_state> &st);
       
     public:
       bool accept;
@@ -66,9 +67,12 @@ namespace nanan {
   public:
     virtual void load(const std::string &re_str);
     virtual std::vector<size_t> match(const std::string &str);
+#if NDEBUG==0
     virtual void print_states(nan_regular::state_t s);
     virtual void print_nfa();
     virtual void print_dfa();
+#endif
+    virtual void clear();
     
   protected:
     virtual int next_state();
@@ -126,6 +130,7 @@ namespace nanan {
     std::vector<state_t> _state_stack;                                  /*!< 状态栈 */
     std::vector<int> _charset;                                          /*!< 字符集 */
     std::vector<std::pair<size_t, nan_regular::state_t> > _dfa_set;     /*!< dfa的状态集合 */
+    std::vector<std::vector<bool> > _dfa_map;                           /*!< 状态链接图 */
     
   private:
     size_t _max_buffer_len;
