@@ -229,13 +229,35 @@ namespace nanan {
     else {
       if (re_str.size() > _max_buffer_len) throw nan_regular_over_max_buffer_len(0);
       _regular_expression = re_str;
-    }    
+    }
+    
+    preprocess_regular_expression();
     compile_regular_expression();
   }
   
   bool nan_regular::match_strict(const std::string &str) {
     if (_dfa == nullptr) {
       return false;
+    }
+    
+    if (_strict) {
+      bool found = false;
+      for (auto c : _strict_start) {
+        if (c == str[0]) {
+          found = true;
+          break;
+        }
+      }
+      if (found == false) return false;
+      
+      found = false;
+      for (auto c : _strict_end) {
+        if (c == str[str.length()-1]) {
+          found = true;
+          break;
+        }
+      }
+      if (found == false) return false;
     }
     
     nan_regular::state_t curr = _dfa;
@@ -255,6 +277,11 @@ namespace nanan {
       
     }
     
+    /* 如果是^$匹配则忽略释放处于接受状态 */
+    if (_strict) {
+      return true;
+    }
+    
     return curr->accept;
   }
   
@@ -262,6 +289,13 @@ namespace nanan {
     std::vector<std::pair<size_t, size_t> > res;
     
     if (_dfa == nullptr) {
+      return res;
+    }
+    
+    if (_strict) {
+      if (match_strict(str)) {
+        res.push_back(std::make_pair(0, str.length()));
+      }
       return res;
     }
     
@@ -301,6 +335,13 @@ namespace nanan {
     std::vector<std::pair<size_t, size_t> > res;
     
     if (_dfa == nullptr) {
+      return res;
+    }
+    
+    if (_strict) {
+      if (match_strict(str)) {
+        res.push_back(std::make_pair(0, str.length()));
+      }
       return res;
     }
     
@@ -376,6 +417,17 @@ namespace nanan {
   void nan_regular::print_dfa() {
     print_states(_dfa);
   }
+  
+  void nan_regular::printf_dfa_map() {
+    for (size_t i = 0; i < _dfa_map.size(); i++) {
+      for (size_t j = 0; j < _dfa_map[i].size(); j++) {
+        if (_dfa_map[i][j]) printf("1 ");
+        else printf("0 ");
+      }
+      printf("\n");
+    }
+  }
+  
 #endif
   
   void nan_regular::clear() {
@@ -391,6 +443,11 @@ namespace nanan {
     _dfa_set.clear();
     _e_closure_pass.clear();
     _dfa_map.clear();
+    
+    _strict = false;
+    _strict_start.clear();
+    _strict_end.clear();
+    _sub_regular.clear();
   }
   
   int nan_regular::next_state() {
@@ -464,8 +521,29 @@ namespace nanan {
     _curr_pos -= c;
   }
   
+  static std::vector<int> s_add_strict_start(const std::string &re_str) {
+    std::vector<int> res;
+    res.push_back(re_str[0]);
+    return res;
+  }
+  
+  static std::vector<int> s_add_strict_end(const std::string &re_str) {
+    std::vector<int> res;
+    res.push_back(re_str[re_str.length()-1]);
+    return res;
+  }
+  
+  void nan_regular::preprocess_regular_expression() {
+    /* 是否是严格匹配开头是^，结尾是$ */
+    if ((_regular_expression[0] == '^') && (_regular_expression[_regular_expression.size() - 1] == '$')) {
+      _strict = true;
+      _regular_expression = _regular_expression.substr(1, _regular_expression.length() - 2);
+      _strict_start = s_add_strict_start(_regular_expression);
+      _strict_end = s_add_strict_end(_regular_expression);
+    }
+  }
+  
   void nan_regular::compile_regular_expression() {
-    
     try {
       thompson(0);
       if (_state_stack.empty() == false) throw nan_regular_parse_unknow();
@@ -577,7 +655,9 @@ namespace nanan {
         (ch == '.') ||
         (ch == '|') ||
         (ch == '+') ||
+        (ch == '?') ||
         (ch == '*') ||
+        (ch == '{') ||
         (ch == '\\')) {
       return new_edge(ch);
     } else {
@@ -724,6 +804,20 @@ namespace nanan {
     return true;
   }
   
+  std::vector<int> nan_regular::charset_transferred(int c) {
+    std::vector<int> res;
+    
+    if (c == 'd') {
+    } else if (c == 'D') {
+    } else if (c == 'w') {
+    } else if (c == 'W') {
+    } else if (c == 's') {
+    } else if (c == 'S') {
+    }
+    
+    return res;
+  }
+  
   nan_regular::state_t nan_regular::thompson(int end) {
     state_t top = nullptr, call = nullptr;
     edge_t edge = nullptr;
@@ -747,6 +841,8 @@ namespace nanan {
       else if (ch == '|') { is_or = true; continue; }
       else if (ch == '+') { _curr->add_edge(_prev, -1); continue; }
       else if (ch == '*') { asterisk_link_state(); continue; }
+      else if (ch == '?') {continue;}
+      else if (ch == '{') {continue;}
       else edge = make_edge(ch);
       
       if (edge) {
@@ -1047,16 +1143,5 @@ namespace nanan {
         _dfa_map[s.second->state][e.first->state] = true;
       }
     }
-    
-#if NDEBUG==0
-    for (size_t i = 0; i < _dfa_map.size(); i++) {
-      for (size_t j = 0; j < _dfa_map[i].size(); j++) {
-        if (_dfa_map[i][j]) printf("1 ");
-        else printf("0 ");
-      }
-      printf("\n");
-    }
-#endif
-    
   }
 }

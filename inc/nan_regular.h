@@ -74,6 +74,7 @@ namespace nanan {
     virtual void print_states(nan_regular::state_t s);
     virtual void print_nfa();
     virtual void print_dfa();
+    virtual void printf_dfa_map();
 #endif
     virtual void clear();
     
@@ -84,6 +85,7 @@ namespace nanan {
     virtual nan_regular::edge_t new_edge(std::vector<int> &e,
                                          bool unique=false);
     
+    virtual void preprocess_regular_expression();
     virtual void compile_regular_expression();
     virtual nan_regular::state_t thompson(int end=0);
     virtual nan_regular::edge_t parse_dot();
@@ -113,6 +115,7 @@ namespace nanan {
                                 const std::vector<nan_regular::state_t> &set);
     static bool state_set_divide_is_equal(std::vector<std::vector<nan_regular::state_t> > v1,
                                           std::vector<std::vector<nan_regular::state_t> > v2);
+    static std::vector<int> charset_transferred(int c);
     
   protected:
     virtual void begin_pos();
@@ -134,6 +137,10 @@ namespace nanan {
     std::vector<int> _charset;                                          /*!< 字符集 */
     std::vector<std::pair<size_t, nan_regular::state_t> > _dfa_set;     /*!< dfa的状态集合 */
     std::vector<std::vector<bool> > _dfa_map;                           /*!< 状态链接图 */
+    std::vector<std::shared_ptr<nan_regular> > _sub_regular;            /*!< 子表达式 */
+    bool _strict;                                                       /*!< 严格匹配 */
+    std::vector<int> _strict_start;                                     /*!< 严格匹配开头字符 */
+    std::vector<int> _strict_end;                                       /*!< 严格匹配结尾字符 */
     
   private:
     size_t _max_buffer_len;
