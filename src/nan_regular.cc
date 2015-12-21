@@ -381,6 +381,11 @@ namespace nanan {
     return res;
   }
   
+  std::vector<std::pair<size_t, size_t> > nan_regular::match(const std::string &str) {
+    std::vector<std::pair<size_t, size_t> > res;
+    return res;
+  }
+  
 #if NDEBUG==0
   
   void nan_regular::print_states(nan_regular::state_t s) {
@@ -436,6 +441,7 @@ namespace nanan {
     _curr_state = -1;
     _nfa = nullptr;
     _dfa = nullptr;
+    _reverse_dfa = nullptr;
     _curr = nullptr;
     _prev = nullptr;
     _state_stack.clear();
@@ -549,6 +555,7 @@ namespace nanan {
       if (_state_stack.empty() == false) throw nan_regular_parse_unknow();
       nfa2dfa(_nfa);
       hopcroft();
+      if (_strict) reverse();
     } catch (nan_regular_parse_unknow e) {              /* 不知名的错误 */
     } catch (nan_regular_parse_not e) {                 /* 分析not操作符出错 */
     } catch (nan_regular_parse_set e) {                 /* 分析集合操作出错 */
@@ -649,6 +656,12 @@ namespace nanan {
     if (curr_char() != '\\') throw nan_regular_parse_transferred(_curr_pos);
     
     int ch = next_char();
+    
+    /* 字符集合 */
+    std::vector<int> charset = charset_transferred(ch);
+    if (charset.empty() == false) {
+      return new_edge(charset, true);
+    }
     
     if ((ch == '(') ||
         (ch == '[') ||
@@ -808,11 +821,26 @@ namespace nanan {
     std::vector<int> res;
     
     if (c == 'd') {
+      for (int i = 0x30; i <= 0x39; i++) res.push_back(i);
     } else if (c == 'D') {
+      for (int i = 0x01; i <= 0x2f; i++) res.push_back(i);
+      for (int i = 0x3a; i <= 0x7f; i++) res.push_back(i);
     } else if (c == 'w') {
+      for (int i = 0x30; i <= 0x39; i++) res.push_back(i);
+      for (int i = 0x41; i <= 0x5a; i++) res.push_back(i);
+      for (int i = 0x61; i <= 0x7a; i++) res.push_back(i);
+      res.push_back(0x5f);
     } else if (c == 'W') {
+      for (int i = 0x01; i <= 0x2f; i++) res.push_back(i);
+      for (int i = 0x3a; i <= 0x40; i++) res.push_back(i);
+      for (int i = 0x5b; i <= 0x5e; i++) res.push_back(i);
+      res.push_back(0x60);
+      for (int i = 0x7b; i <= 0x7f; i++) res.push_back(i);
     } else if (c == 's') {
+      for (int i = 0x01; i <= 0x20; i++) res.push_back(i);
+      res.push_back(0x7f);
     } else if (c == 'S') {
+      for (int i = 0x21; i <= 0x7e; i++) res.push_back(i);
     }
     
     return res;
@@ -1144,4 +1172,11 @@ namespace nanan {
       }
     }
   }
+  
+  /* 反转遍以后的dfa */
+  void nan_regular::reverse() {
+    if (_dfa == nullptr) return;
+    //state_t accept = _dfa;
+  }
+  
 }

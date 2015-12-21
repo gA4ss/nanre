@@ -69,6 +69,7 @@ namespace nanan {
     virtual bool match_strict(const std::string &str);
     virtual std::vector<std::pair<size_t, size_t> > match_short(const std::string &str);
     virtual std::vector<std::pair<size_t, size_t> > match_long(const std::string &str);
+    virtual std::vector<std::pair<size_t, size_t> > match(const std::string &str);
     
 #if NDEBUG==0
     virtual void print_states(nan_regular::state_t s);
@@ -98,6 +99,7 @@ namespace nanan {
     virtual std::pair<std::vector<nan_regular::state_t>, std::vector<nan_regular::state_t> >
     split(const std::vector<nan_regular::state_t> &S);
     virtual void hopcroft();
+    virtual void reverse();
     
   protected:
     virtual void link_state(nan_regular::edge_t edge);
@@ -131,6 +133,7 @@ namespace nanan {
     int _curr_state;                                                    /*!< 当前的状态 */
     state_t _nfa;                                                       /*!< 不确定性有限状态机 */
     state_t _dfa;                                                       /*!< 确定性有限状态机 */
+    state_t _reverse_dfa;                                               /*!< 反转后的有限状态机 */
     state_t _curr;                                                      /*!< 当前的状态 */
     state_t _prev;                                                      /*!< 上一个状态 */
     std::vector<state_t> _state_stack;                                  /*!< 状态栈 */
