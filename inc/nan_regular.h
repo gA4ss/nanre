@@ -69,11 +69,13 @@ namespace nanan {
     virtual bool match_strict(const std::string &str);
     virtual std::vector<std::pair<size_t, size_t> > match_short(const std::string &str);
     virtual std::vector<std::pair<size_t, size_t> > match_long(const std::string &str);
+    virtual std::vector<std::pair<size_t, size_t> > match(const std::string &str);
     
 #if NDEBUG==0
     virtual void print_states(nan_regular::state_t s);
     virtual void print_nfa();
     virtual void print_dfa();
+    virtual void printf_dfa_map();
 #endif
     virtual void clear();
     
@@ -84,6 +86,7 @@ namespace nanan {
     virtual nan_regular::edge_t new_edge(std::vector<int> &e,
                                          bool unique=false);
     
+    virtual void preprocess_regular_expression();
     virtual void compile_regular_expression();
     virtual nan_regular::state_t thompson(int end=0);
     virtual nan_regular::edge_t parse_dot();
@@ -96,6 +99,7 @@ namespace nanan {
     virtual std::pair<std::vector<nan_regular::state_t>, std::vector<nan_regular::state_t> >
     split(const std::vector<nan_regular::state_t> &S);
     virtual void hopcroft();
+    virtual void reverse();
     
   protected:
     virtual void link_state(nan_regular::edge_t edge);
@@ -113,6 +117,7 @@ namespace nanan {
                                 const std::vector<nan_regular::state_t> &set);
     static bool state_set_divide_is_equal(std::vector<std::vector<nan_regular::state_t> > v1,
                                           std::vector<std::vector<nan_regular::state_t> > v2);
+    static std::vector<int> charset_transferred(int c);
     
   protected:
     virtual void begin_pos();
@@ -128,12 +133,17 @@ namespace nanan {
     int _curr_state;                                                    /*!< 当前的状态 */
     state_t _nfa;                                                       /*!< 不确定性有限状态机 */
     state_t _dfa;                                                       /*!< 确定性有限状态机 */
+    state_t _reverse_dfa;                                               /*!< 反转后的有限状态机 */
     state_t _curr;                                                      /*!< 当前的状态 */
     state_t _prev;                                                      /*!< 上一个状态 */
     std::vector<state_t> _state_stack;                                  /*!< 状态栈 */
     std::vector<int> _charset;                                          /*!< 字符集 */
     std::vector<std::pair<size_t, nan_regular::state_t> > _dfa_set;     /*!< dfa的状态集合 */
     std::vector<std::vector<bool> > _dfa_map;                           /*!< 状态链接图 */
+    std::vector<std::shared_ptr<nan_regular> > _sub_regular;            /*!< 子表达式 */
+    bool _strict;                                                       /*!< 严格匹配 */
+    std::vector<int> _strict_start;                                     /*!< 严格匹配开头字符 */
+    std::vector<int> _strict_end;                                       /*!< 严格匹配结尾字符 */
     
   private:
     size_t _max_buffer_len;
